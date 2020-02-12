@@ -1,0 +1,480 @@
+
+%08/07/2018
+clear all
+%%This part for generate how wavelength change with experiment time, assume
+%%integration time is 1 sec.
+
+%This program need to specfy what should each part looks like....like the
+%matrix of gfluorescence, the format of CCD file, any of those things
+%change, would result in the change of final result.
+
+%%
+%PartI: user define
+%User define：This part is for chose the direction of apd file, then automatically run files
+codefolder=pwd;
+cd('C:\Users\Livi\Documents\Results')
+srcDir=uigetdir('Choose source ccd source folder directory.');
+cd(srcDir);
+allnames=struct2cell(dir('*.mat'));
+[k,len]=size(allnames);
+date='1007'%basically the folder name
+inttime=1;%This is time in sec
+deadtime=0.08;%This is time in sec
+timetrace_resolution=0.1*10^9;%The resolution for setting the bin size in time trace in ns
+tau_max=90; % in unit of picoescond
+tau_min=70;%in unit of pico second
+tau_inter=10;%between lowest and highest tau, you won't check one by one....
+plot_graph='no';
+dataset_Y='yes';
+solvent='Chloroform';
+channel_box=[0];%must put in a row
+wavelengthstart=22;%The row start to calculate average lifetime.
+
+
+% Part II. start the calculation
+for len_i=1:len;
+clearvars -except len_i date k len allnames inttime deadtime dataset plot_graph dataset_Y timetrace_resolution codefolder channel_box tau_max tau_min tau_inter wavelengthstart solvent
+%%
+clear name
+
+name=char(allnames(1,len_i));
+name=name(1:length(name)-4);
+
+%This part need to 
+cd('C:\Users\Livi\Desktop\PTU_spectrum_lifetime')
+try
+ccdt=importdata(['C:\Users\Livi\Documents\Results\' date '\ccd\' 'ccdt' name '.mat']);
+expwl=importdata(['C:\Users\Livi\Documents\Results\' date '\ccd\' 'ccdt_wavelength' name '.mat']);
+catch
+    fprintf('No CCD file avaliable for file: %s\n',name)
+end
+%This part import APD file.
+apd_file=['C:\Users\Livi\Documents\Results\' date '\apd\' name '.mat'];%获得选择的文件夹
+
+for channel_choice=1:numel(channel_box)
+    cd(codefolder);
+channel=channel_box(channel_choice,1);
+%Part II.1 Time trace of APD
+[apddata,apddataresolution]=PTUim(apd_file);
+datasource=GetDandABS(apddata,channel,'M');
+absolutetime=datasource(:,1);%in nano sec
+dtime=datasource(:,2);%in bin num
+
+%Deserve a for loop for different data sets
+timetrace=Gen_timetrace(absolutetime,timetrace_resolution);
+time=timetrace(:,1);
+%PartII.2 Modified curve calculation
+countsrate=timetrace(:,2);
+codefol='C:\Users\Livi\Desktop\seperating state';
+[eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefol);%this for seperate into different states
+%Generate the place the change occur,the last element of former segment;
+n=1;
+for i=2:length(eff_fit(numst,:))
+   if eff_fit(numst,i-1)~=eff_fit(numst,i) 
+    stage_changepts(n,1)=i-1;%This should be the last element of one segment
+   n=n+1;
+   end
+end
+stage_start=zeros(length(stage_changepts),1);
+for i=1:length(stage_changepts)
+    stage_start(i,1)=time(stage_changepts(i,1),1);%Generate time corresponding to stage change
+end
+stage_start=cat(1,0,stage_start);%make the unit from sec to nanosec,and start with time zero
+%compare with perfectime, find another loop or something...
+%change rowrange to rowrange.rr(i), in this case, we are able to seperate each
+%rr as different state and easier to work on.
+
+
+%This is for dissect data to 1 sec time range, or several time range when
+%points are not enough.
+ttstart=absolutetime(1,1);%The unit is in nanosecond
+ttend=absolutetime(end,1);
+exptime = ttend;
+perstartt = ttstart;
+perfecttime =zeros(1,ceil((ttend-ttstart)/((inttime+deadtime)*10^9))+5);%matrix for the desired timeline
+con1=1;
+while (perstartt<=exptime-inttime*10^9)%要是endtime满足starttime不满足呢，startime应该会超过去
+    perfecttime(1,con1) = perstartt;
+    perstartt = perstartt+inttime*10^9+deadtime*10^9;
+    con1=con1+1;
+end
+perfecttime=perfecttime(perfecttime~=0);
+%%This part to seperate the perfectime in different state, so we can use
+%%seperate different row range in different state,then based on the state,
+%%if unique 2 states, then calculate fist 1/2, and last 1/3,if more than
+%%unique 2 states, then just alculate based on each second first, if you
+%%couldn't get any lifetime based on one second, then just add up following
+%%rowrange, untill we can get a proper lifetime. If we couln't
+%%(unlikely),just let it go.
+
+%
+s=1;
+rowrange = [];
+stagestart_n=2;
+strow=0;
+
+lengp=length(perfecttime);
+lenga=length(absolutetime);
+
+for n = 1:lengp%加1是为了保证剩下的数据也全部的加上，要不然由于限制条件的存在，最后不到1s的数据不会有    
+    while (absolutetime(s,1)<perfecttime(1,n))%using s-1 could avoid the fist start data lager then first perfect time, it could change to start from the first num in the column if wanted
+        s=s+1;%所取的格子，大于实际的格子
+    end
+        srn = s;%start row number
+    while (absolutetime(s,1)<(absolutetime(srn,1)+inttime*10^9))
+        s=s+1;%所取的格子大于实际的格子,有利的的是就算最后一个不足1s的积分直接被扔掉，因为前面perfectime限制条件的原因
+        if s>=lenga
+            s=lenga;
+        end
+        
+    end
+        ern = s;%end row number
+%This part use two 'if' to put data into different state...
+    if stagestart_n<=length(stage_start)
+        if stage_start(stagestart_n-1,1)<=perfecttime(1,n) && perfecttime(1,n)<=stage_start(stagestart_n,1)
+    strow = strow+1;
+    rowrange(stagestart_n-1).rr(1,strow)=srn;
+    rowrange(stagestart_n-1).rr(2,strow)=ern;
+    
+        elseif perfecttime(1,n)>stage_start(stagestart_n,1)
+    strow=1;
+    stagestart_n=stagestart_n+1;
+    rowrange(stagestart_n-1).rr(1,strow)=srn;
+    rowrange(stagestart_n-1).rr(2,strow)=ern;
+        end        
+    else
+    strow = strow+1;
+    rowrange(stagestart_n-1).rr(1,strow)=srn;
+    rowrange(stagestart_n-1).rr(2,strow)=ern;    
+        
+   end
+end
+if length(rowrange(1).rr)==0;
+    rowrange(1)=[];
+end
+
+cd(codefolder)
+%
+%This is the part for generate lifetime for each part
+IRFI_sub_file=strcat(['C:\Users\Livi\Documents\Results\0505convolution\apd\IRFI_8ps_8000_channel' num2str(channel) '.mat']);
+[IRFI_hisdtime,IRFI_resolution]=PTUim(IRFI_sub_file);
+if IRFI_resolution~=apddataresolution
+error('No need to calculate lifetime, IRF and Fluorescence have different resolution')
+end
+    
+%Part 0: User Define
+
+%Part0.2 program required
+lf=[];
+%For generating picture purpose, I will introduce variable 'js' to check
+%what is the second number.
+%%%for name
+js=0;
+%%%
+for n=1:length(rowrange)
+    [~,rowrange_heng]=size(rowrange(n).rr);
+    zeroplace(n).zp(1,1)=0;
+    ii=0;
+for i=1:rowrange_heng
+    %%%For name
+    js=js+1;
+    %%%
+    Intensity(js)=length(rowrange(n).rr(1,i):rowrange(n).rr(2,i));
+    Fluo_dtime=dtime(rowrange(n).rr(1,i):rowrange(n).rr(2,i),1);
+    
+    
+    
+[Live(n).lifetime(i).ll,~,fitting(n).fit(i).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);%By using this, need to find your own range....
+
+if Live(n).lifetime(i).ll == 0
+    %find the place equal to zero in each state.
+        ii=ii+1;
+    zeroplace(n).zp(ii,1)=i;
+end
+end
+
+%
+%Also you need to check which part is continuous zero. I check by minus
+%former value. I also put different set of continuous part in 'matrix
+%conti',column direction is different set
+
+
+
+%If zero place is inside, one of the problem is that zero won't produce
+%unless the next value shows up, I think...
+if length(zeroplace(n).zp)>=2;j=1;k=1;q=1;
+for i=1:length(zeroplace(n).zp)-1
+        if zeroplace(n).zp(i,1)==zeroplace(n).zp(i+1,1)-1
+        q=0;
+        conti(n).co(j,k)=zeroplace(n).zp(i,1);
+        k=k+1;
+            if i==length(zeroplace(n).zp)-1
+                conti(n).co(j,k)=zeroplace(n).zp(i+1,1);
+            end
+        
+        else
+            if q~=1
+            conti(n).co(j,k)=zeroplace(n).zp(i,1);
+            j=j+1;% j for each continuous 1 put in one row,change different row for different set of       
+            q=1;k=1;
+                if i==length(zeroplace(n).zp)-1
+                conti(n).co(j,k)=zeroplace(n).zp(i+1,1);
+                end
+            end
+        end
+        
+end        
+end
+end
+%%
+%This part is another for loop for calculate rearranged data.
+%If the zero is continuous, add up nearby two set of data, recalculate lifetime again;if the zero is not
+    %continuous,give up there might be some extra problem that we need to
+    %solve. Similar to Lifetime calculation
+    
+    newccdt=ccdt;
+    newIntensity=Intensity;
+    newexpwl=expwl;
+    
+    
+    %Avoid the confucion and easier the cauculation, if the 0 more than 
+    %js_n=0;
+for n=1:length(rowrange)
+    [conti_zong,~]=size(conti(n).co);
+  
+    Fluo_dtime=[];
+    if numel(conti(n).co)~=0
+    for iii=1:conti_zong
+      zerolength=length(find(conti(n).co(iii,:)>0));
+                if zerolength<30;
+                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
+                    for k=1:zerolength-1;
+                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                                      
+                    end
+                    newccdt_combination=sum(newccdt(:,conti(n).co(iii,1)+2:conti(n).co(iii,zerolength)+2),2);
+                    Intensity_combination=sum(Intensity(1,conti(n).co(iii,1):conti(n).co(iii,zerolength)));
+                    avewavelength=sum(newccdt_combination(wavelengthstart:end,1).*newccdt(wavelengthstart:end,1))/sum(newccdt_combination(wavelengthstart:end,1));
+                   %%%For name
+                    %js=js_n+conti(n).co(iii,1);               
+                   %%%
+                    [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                    newccdt(:,conti(n).co(iii,1)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,1))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,1)+1,1)=avewavelength;                    
+                    for k=1:zerolength-1
+                    Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
+                    fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
+                    newccdt(:,conti(n).co(iii,1+k)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,1+k))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,1+k)+1,1)=avewavelength;
+                    end
+                    
+                elseif zerolength>=30
+      %Then we need to calculate from both side, then compare with each
+      %other, basically we need to seperate the zeros into 3 parts, with
+      %intersection of 10s, then we will calculate from both side, then
+      %lets see what's the proble lifetime for both side.
+                    callength=floor((zerolength-10)/2)-1;%with minus one to eliminate the chance of over exceed the length
+                    %for claculate and write in the first half
+                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
+                    for k=1:callength-1
+                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                  
+                    end
+                     newccdt_combination=sum(newccdt(:,conti(n).co(iii,1)+2:conti(n).co(iii,callength)+2),2);
+                    Intensity_combination=sum(Intensity(1,conti(n).co(iii,1):conti(n).co(iii,callength)));
+                     avewavelength=sum(newccdt_combination(wavelengthstart:end,1).*newccdt(wavelengthstart:end,1))/sum(newccdt_combination(wavelengthstart:end,1));
+                    %%%For name
+                     %js=js_n+conti(n).co(iii,1); 
+                     %%%
+                    [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                    newccdt(:,conti(n).co(iii,1)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,1))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,1)+1,1)=avewavelength; 
+                    for k=1:callength-1
+                        Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
+                        fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
+                    newccdt(:,conti(n).co(iii,1+k)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,1+k))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,1+k)+1,1)=avewavelength; 
+                    end
+                    
+                    %for calculate and write in the second half 
+                    k=callength+10;
+                    kk=callength+10;
+                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,k)):rowrange(n).rr(2,conti(n).co(iii,k)),1);
+                    for k=callength+10:zerolength-1
+                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));
+                    end
+                    newccdt_combination=sum(newccdt(:,conti(n).co(iii,kk)+2:conti(n).co(iii,zerolength)+2),2);
+                    Intensity_combination=sum(Intensity(1,conti(n).co(iii,kk):conti(n).co(iii,zerolength)));
+                    avewavelength=sum(newccdt_combination(wavelengthstart:end,1).*newccdt(wavelengthstart:end,1))/sum(newccdt_combination(wavelengthstart:end,1));
+                    %%%For name
+                     %js=js_n+conti(n).co(iii,k);
+                     %%%
+                    [Live(n).lifetime(conti(n).co(iii,kk)).ll, ~,fitting(n).fit(conti(n).co(iii,kk)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                    newccdt(:,conti(n).co(iii,kk)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,kk))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,kk)+1,1)=avewavelength; 
+                    
+                    for k=callength+10:zerolength-1
+                        Live(n).lifetime(conti(n).co(iii,k+1)).ll=Live(n).lifetime(conti(n).co(iii,kk)).ll;
+                        fitting(n).fit(conti(n).co(iii,k+1)).ft=fitting(n).fit(conti(n).co(iii,kk)).ft;
+                    newccdt(:,conti(n).co(iii,1+k)+2)=newccdt_combination;
+                    newIntensity(1,conti(n).co(iii,1+k))=Intensity_combination;
+                    newexpwl(conti(n).co(iii,1+k)+1,1)=avewavelength; 
+                    end
+                end      
+        %also later would add on how to deal with different stage, two stage or
+    %two more, we will treat them differently.
+    end
+    end   
+    
+    %%%For name
+     %   [~,rowrange_heng]=size(rowrange(n).rr);
+    %js_n=js_n+rowrange_heng;
+    %%%
+    
+end
+
+
+%%
+% this part could transfer the ensemble data from different segments to one
+% matrix with lifetime for each second.
+i=0;
+for n=1:length(Live)
+    [~,lifetime_heng]=size(Live(n).lifetime);
+    for ii=1:lifetime_heng
+        [lf_min,lf_min_position]=min(Live(n).lifetime(ii).ll(:,1));
+    if lf_min~=0
+    lf(i+ii,1)=lf_min;%for If the first column is the min S value,second is corresponsing lifetime, third is minimum lifetime, forth corresponding S value; fifth is maximum lifetime; 6th is correponding S value.
+    lf(i+ii,2)=Live(n).lifetime(ii).ll(lf_min_position,2);%lifetime for mininum S value
+    [lf(i+ii,5),min_lifetime_position]=min(Live(n).lifetime(ii).ll(:,2));%minimum lifetime 
+    lf(i+ii,3)=max(Live(n).lifetime(ii).ll(min_lifetime_position,1));%S value corresponding to minimum lifetime
+    [lf(i+ii,6),max_lifetime_position]=max(Live(n).lifetime(ii).ll(:,2));%maximum lifetime
+    lf(i+ii,4)=max(Live(n).lifetime(ii).ll(max_lifetime_position,1));%S value corresponding to maximum lifetime
+    end
+    end
+    i=lifetime_heng+i;
+end
+
+
+%%
+%plot the graph
+if length(lf)~=0
+
+[lf_v,~]=size(lf);
+[wl_v,~]=size(expwl);
+%plot
+    if lf_v>=wl_v
+    %lf_max=max(lf(1:wl_v-1,2));%max value is for normalization, may bring some
+    %erro, not use here for now
+    %expwl_max=max(expwl(2:end,1));
+    lfneg=lf(1:wl_v-1,5)-lf(1:wl_v-1,2);
+    lfpos=lf(1:wl_v-1,6)-lf(1:wl_v-1,2);
+    lfS=lf(1:wl_v-1,1);
+    lfwl=cat(2,lf(1:(wl_v-1),2),expwl(2:end,1));%minus one is due to first element of expwl is 0. in order to make the dimension match each other.
+    ccdintensity=sum(ccdt(:,3:end));
+    newccdintensity=sum(newccdt(:,3:end));
+    else
+    %lf_max=max(lf(:,2));
+    %expwl_max=max(expwl(2:lf_v,1));
+    lf=cat(1,lf,zeros(wl_v-lf_v-1,6));
+    lfneg=lf(:,5)-lf(:,2);
+    lfpos=lf(:,6)-lf(:,2);
+    lfS=lf(:,1);
+    lfwl=cat(2,lf(:,2),expwl(2:end,1));% same as minus one
+    ccdintensity=sum(ccdt(:,3:end));
+    newccdintensity=sum(newccdt(:,3:end));
+    end
+    
+% 
+  %This is for generate the useful dataset
+  if strcmp(dataset_Y,'yes')==1
+     dataset.time_trace=cat(2,timetrace(:,1),timetrace(:,2).*(0.01*10^9)/timetrace_resolution);
+     dataset.side=struct('eff',eff*((0.01*10^9)/timetrace_resolution),'eff_fit',eff_fit*((0.01*10^9)/timetrace_resolution),'MDL',MDL,'numst',numst,'current_state',current_state,'ABStime_x',time-min(time));
+     dataset.ccdt=ccdt(:,1:end);
+     dataset.newccdt=newccdt(:,1:end);
+     dataset.scatterplot.lifetime=cat(2,lfS,lfwl(:,1),lfneg,lfpos);
+     dataset.scatterplot.spectrum=lfwl(:,2);
+     dataset.scatterplot.newspectrum=newexpwl(2:end,1);
+     dataset.scatterplot.intensity=cat(1,Intensity(1,1:length(lfwl(:,1))),ccdintensity);
+     dataset.scatterplot.newintensity=cat(1,newIntensity(1,1:length(lfwl(:,1))),newccdintensity);
+     dataset.fitting=fitting;
+     dataset.rowrange=rowrange;
+     dataset.perfecttime=perfecttime;
+      
+        try
+    cd (['C:\Users\Livi\Documents\Results\' date '\dataset intermediates' '\' num2str(channel)])
+        catch
+    cd(['C:\Users\Livi\Documents\Results\' date])
+    %mkdir dataset intermediates
+    mkdir(['C:\Users\Livi\Documents\Results\' date '\dataset intermediates' '\' num2str(channel)])
+    cd (['C:\Users\Livi\Documents\Results\' date '\dataset intermediates' '\' num2str(channel)])
+        end
+    save([solvent date 'dataset' name '.mat'],'dataset')                
+  end
+    %see
+if strcmp(plot_graph,'yes')==1
+    
+figure
+hold off
+subplot(3,4,[7 8 11 12]);
+title('lifetime and spectrum')
+x=1:length(lfwl(:,1));
+%scatter3(x,lfwl(:,1),lf(x,1),'o');
+errorbar(x,lfwl(:,1),lfneg,lfpos, 'o');
+text(x,lfwl(:,1),lf(x,1)-1,'\ast','HorizontalAlignment','center')
+zlim([-0.15 0.15]);
+
+
+hold on 
+plot(lfwl(:,2),'o');
+legend('lifetime','wavelength (pixel*10)')%using normalized picture will miss some important points, such as in raster scan, the dark position seems to be blue emission.
+end
+else
+    if strcmp(plot_graph,'yes')==1
+    subplot(3,4,[7 8 11 12]);
+    title('spectrum')
+    plot(expwl.*8,'o');
+    xlabel('Lifetime not work for this file...sad...')
+    %print=['Not working for this file....sad....']
+    end
+end
+%
+%This part plot time trace in the subplot of (3,4,[1 2])(3,4,3)(3,4,4)
+if strcmp(plot_graph,'yes')
+    numst = min(numst, numel(MDL));
+    current_state = numst;
+    subplot(3,4,3);
+    %state plot is for histogram
+    cd('C:\Users\Livi\Desktop\seperating state')
+    state_plot(numst,eff,eff_fit,MDL);
+    title('Intensity horizontal histogram')
+    
+    subplot(3,4,[1 2]);
+    slider_plot(eff,eff_fit,current_state);
+    title(strcat('Time Trace ', ' Choosing ',num2str(numst),' states'))
+    %rowrange
+    subplot(3,4,4);
+    spider_plot(MDL,numst);
+    title('MDL vs. States')
+
+%%
+%This part for generate ccd spectrum
+subplot(3,4,[5 6 9 10]);
+hold
+mesh(ccdt);title('spectrum');
+%%
+%This is the part for saving graph
+try
+cd (['C:\Users\Livi\Documents\Results\' date '\Figure intermediates' '\' num2str(channel)])
+catch
+    cd(['C:\Users\Livi\Documents\Results\' date ''])
+    mkdir Figure intermediates
+    cd (['C:\Users\Livi\Documents\Results\' date '\Figure intermediates' '\' num2str(channel)])
+end
+savefig([name '.fig'])
+close all
+end
+end
+end
