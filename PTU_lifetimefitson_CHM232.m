@@ -1,27 +1,22 @@
-function [how,delta,fitting]=lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution)
-%function [how,delta]=lifetimefitson_CHM232(name,Fluofilename,comparerange,IRFI_sub)
+function [how,delta,fitting]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution)
 %GenDISTORED is slow, update to GENDISTRED_M on Feb/19/2018
 
 %Only responsible for generate histogram in possible region, not possible
 %for generate determin startponit.etc.
 
-
 %"comparerange" need to be large enough to include all instrumental
 %response inside.
 
-
-%The important part of this program is that it should should distingguish
+%The important part of this program is that it should should distinguish
 %background and signal(by find change points),on the other hand, both laser
 %light itself or fluorescene need to be normalized,otherwise how do you
 %compare with each other...(This is done by the over the max value...)
 
 %Test if the shutter is already closed, and you only get signel from 15
-if length(Fluo_dtime)<1000
-    how=0;delta=0;
-    fitting=0;
-   return
-end
 
+% if length(Fluo_dtime)<1000
+%     how=0;delta=0;fitting=0;return
+% end
 
 DISTORED=[];
 detect_range=[];
@@ -35,24 +30,11 @@ IRFI_bg=IRFI_hisdtime(end-1100:end-100);
 % %%%Check point%%%%
 IRFI_bg=sum(IRFI_hisdtime(end-1100:end-100))/1000;
 comparerange_CALC=tau_max*10/IRFI_resolution;
-if comparerange_CALC>=IRF_data_length
-if comparerange_CALC<Fluo_max
-comparerange_CALC=Fluo_max
-end    
 
+comparerange_CALC=max([comparerange_CALC,Fluo_max,IRF_data_length]);
 cpst_n=comparerange_CALC-IRF_data_length;
-    cpst=ones(cpst_n,1)*IRFI_bg;
-    IRFI_hisdtime=cat(1,IRFI_hisdtime,cpst);
-    else
-    if Fluo_max<=IRF_data_length
-    comparerange_CALC=IRF_data_length;
-    else
-        comparerange_CALC=Fluo_max;
-        cpst_n=comparerange_CALC-IRF_data_length;
-        cpst=ones(cpst_n,1)*IRFI_bg;
-        IRFI_hisdtime=cat(1,IRFI_hisdtime,cpst);
-    end
-end
+cpst=ones(cpst_n,1)*IRFI_bg;
+IRFI_hisdtime=cat(1,IRFI_hisdtime,cpst);%No need to histogram, only need to plot
 
 disp('Get the IRFI back ground')
 %Part II: generate CALC:exponential decay in certain range 
