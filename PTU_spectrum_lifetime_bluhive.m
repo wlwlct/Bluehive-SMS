@@ -69,10 +69,9 @@ for len_i=1:len;
                 countsrate=timetrace(:,2);%Counts in 10ms
                 [eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefolder);%this for seperate into different states
                 disp('Finish generate modified time trace')
-                %Generate the place the change occur,the last element of former segment, not the last segment;
+                %Generate the place the change occur,the first element of each element;
                 stage_changepts=transpose(find(diff(eff_fit(numst,:))~=0));
-                stage_start=time(stage_changepts,1);%Generate time corresponding to stage change              
-                stage_start=[0;stage_start;time(end)];%make the unit from sec to nanosec,and start with time zero
+                stage_start=[0;time(stage_changepts+1,1)];
                 disp('Finish Generate change point with absolute time')
                 %This is for dissect data to 1 sec time range, or several time range when points are not enough.
                 ttstart=absolutetime(1,1);%The unit is in nanosecond
@@ -91,8 +90,6 @@ for len_i=1:len;
                 %couldn't get any lifetime based on one second, then just add up following
                 %rowrange, untill we can get a proper lifetime. If we couln't
                 %(unlikely),just let it go.
-
-                %
                 rowrange = [];
                 stagestart_n=2;
                 strow=0;
@@ -101,7 +98,6 @@ for len_i=1:len;
                 for n = 1:lengp
                     [~,srn]=min(abs(absolutetime-perfecttime(1,n)));
                     [~,ern]=min(abs(absolutetime-perfecttime(1,n)-inttime*10^9));
-                    
                     %This part use two 'if' to put data into different state...
                     if stagestart_n<=length(stage_start)
                         if stage_start(stagestart_n-1,1)<=perfecttime(1,n) && perfecttime(1,n)<=stage_start(stagestart_n,1)
@@ -123,11 +119,19 @@ for len_i=1:len;
                     [~,perfect_rowrange(1,n)]=min(abs(absolutetime-perfecttime(1,n)));
                     [~,perfect_rowrange(2,n)]=min(abs(absolutetime-perfecttime(1,n)-inttime*10^9));
                 end
+                stage_start=stage_start(stage_start<=perfecttime(1,end));
+                
+                stage_start_leng=length(stage_start);perfectrow_close_stagestart=(-1)*ones(stage_start_leng,1);
+                for stage_start_i=1:stage_start_leng 
+                    [~,perfectrow_close_stagestart(stage_start_i,1)]=min(abs(perfecttime-stage_start(stage_start_i,1)));
+                end
+                
+                perfectrow_close_stagestart=[[1;perfectrow_close_stagestart(2:end)+1],[perfectrow_close_stagestart(2:end);lengp]];
+                for  stage_start_i=1:stage_start_leng
+                    rowrange(stage_start_i).rr=perfect_rowrange(:,perfectrow_close_stagestart(stage_start_i,1):perfectrow_close_stagestart(stage_start_i,2));
+                end
                 %%%
                 
-if length(rowrange(1).rr)==0;
-    rowrange(1)=[];
-end
 disp('Finish use perfet time line to generate row range')
 cd(codefolder)
 %
