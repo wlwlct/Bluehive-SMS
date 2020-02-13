@@ -69,81 +69,62 @@ for len_i=1:len;
                 countsrate=timetrace(:,2);%Counts in 10ms
                 [eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefolder);%this for seperate into different states
                 disp('Finish generate modified time trace')
-                %Generate the place the change occur,the last element of former segment;
+                %Generate the place the change occur,the last element of former segment, not the last segment;
                 stage_changepts=transpose(find(diff(eff_fit(numst,:))~=0));
-                stage_start=zeros(length(stage_changepts),1);
-for i=1:length(stage_changepts)
-    stage_start(i,1)=time(stage_changepts(i,1),1);%Generate time corresponding to stage change
-end
-stage_start=cat(1,0,stage_start);%make the unit from sec to nanosec,and start with time zero
-disp('Finish Generate change point with absolute time')
+                stage_start=time(stage_changepts,1);%Generate time corresponding to stage change              
+                stage_start=[0;stage_start;time(end)];%make the unit from sec to nanosec,and start with time zero
+                disp('Finish Generate change point with absolute time')
+                %This is for dissect data to 1 sec time range, or several time range when points are not enough.
+                ttstart=absolutetime(1,1);%The unit is in nanosecond
+                ttend=absolutetime(end,1);
+                exptime = ttend;
+                perstartt = ttstart;
+                
+                perfect_prep=[0:1:ceil((ttend-ttstart)/((inttime+deadtime)*10^9))];
+                perfecttime=perstartt+perfect_prep.*((inttime+deadtime)*10^9);%matrix for the desired timeline
+                perfecttime=perfecttime(perfecttime<exptime-inttime*10^9);           
+                disp('Finish Generate perfect time line')
+                %%This part to seperate the perfectime in different state, so we can use
+                %seperate different row range in different state.Based on the state,
+                %if unique 2 states, then calculate fist 1/2, and last 1/3,if more than
+                %unique 2 states, then just calculate based on each second first, if you
+                %couldn't get any lifetime based on one second, then just add up following
+                %rowrange, untill we can get a proper lifetime. If we couln't
+                %(unlikely),just let it go.
 
-%This is for dissect data to 1 sec time range, or several time range when
-%points are not enough.
-ttstart=absolutetime(1,1);%The unit is in nanosecond
-ttend=absolutetime(end,1);
-exptime = ttend;
-perstartt = ttstart;
-perfecttime =zeros(1,ceil((ttend-ttstart)/((inttime+deadtime)*10^9))+5);%matrix for the desired timeline
-con1=1;
-while (perstartt<=exptime-inttime*10^9)%ÒªÊÇendtimeÂú×ãstarttime²»Âú×ãÄØ£¬startimeÓ¦¸Ã»á³¬¹ýÈ¥
-    perfecttime(1,con1) = perstartt;
-    perstartt = perstartt+inttime*10^9+deadtime*10^9;
-    con1=con1+1;
-end
-perfecttime=perfecttime(perfecttime~=0);
-disp('Finish Generate perfect time line')
-%%This part to seperate the perfectime in different state, so we can use
-%%seperate different row range in different state,then based on the state,
-%%if unique 2 states, then calculate fist 1/2, and last 1/3,if more than
-%%unique 2 states, then just alculate based on each second first, if you
-%%couldn't get any lifetime based on one second, then just add up following
-%%rowrange, untill we can get a proper lifetime. If we couln't
-%%(unlikely),just let it go.
+                %
+                rowrange = [];
+                stagestart_n=2;
+                strow=0;
+                lengp=length(perfecttime);
 
-%
-s=1;
-rowrange = [];
-stagestart_n=2;
-strow=0;
-lengp=length(perfecttime);
-lenga=length(absolutetime);
-
-for n = 1:lengp%¼Ó1ÊÇÎªÁË±£Ö¤Ê£ÏÂµÄÊý¾ÝÒ²È«²¿µÄ¼ÓÉÏ£¬Òª²»È»ÓÉÓÚÏÞÖÆÌõ¼þµÄ´æÔÚ£¬×îºó²»µ½1sµÄÊý¾Ý²»»áÓÐ    
-    while (absolutetime(s,1)<perfecttime(1,n))%using s-1 could avoid the fist start data lager then first perfect time, it could change to start from the first num in the column if wanted
-        s=s+1;%ËùÈ¡µÄ¸ñ×Ó£¬´óÓÚÊµ¼ÊµÄ¸ñ×Ó
-    end
-        srn = s;%start row number
-    while (absolutetime(s,1)<(absolutetime(srn,1)+inttime*10^9))
-        s=s+1;%ËùÈ¡µÄ¸ñ×Ó´óÓÚÊµ¼ÊµÄ¸ñ×Ó,ÓÐÀûµÄµÄÊÇ¾ÍËã×îºóÒ»¸ö²»×ã1sµÄ»ý·ÖÖ±½Ó±»ÈÓµô£¬ÒòÎªÇ°ÃæperfectimeÏÞÖÆÌõ¼þµÄÔ­Òò
-    if s>=lenga
-	s=lenga
-	break
-    end
-
-
-     end
-        ern = s;%end row number
-%This part use two 'if' to put data into different state...
-    if stagestart_n<=length(stage_start)
-        if stage_start(stagestart_n-1,1)<=perfecttime(1,n) && perfecttime(1,n)<=stage_start(stagestart_n,1)
-    strow = strow+1;
-    rowrange(stagestart_n-1).rr(1,strow)=srn;
-    rowrange(stagestart_n-1).rr(2,strow)=ern;
-    
-        elseif perfecttime(1,n)>stage_start(stagestart_n,1)
-    strow=1;
-    stagestart_n=stagestart_n+1;
-    rowrange(stagestart_n-1).rr(1,strow)=srn;
-    rowrange(stagestart_n-1).rr(2,strow)=ern;
-        end        
-    else
-    strow = strow+1;
-    rowrange(stagestart_n-1).rr(1,strow)=srn;
-    rowrange(stagestart_n-1).rr(2,strow)=ern;    
-        
-   end
-end
+                for n = 1:lengp
+                    [~,srn]=min(abs(absolutetime-perfecttime(1,n)));
+                    [~,ern]=min(abs(absolutetime-perfecttime(1,n)-inttime*10^9));
+                    
+                    %This part use two 'if' to put data into different state...
+                    if stagestart_n<=length(stage_start)
+                        if stage_start(stagestart_n-1,1)<=perfecttime(1,n) && perfecttime(1,n)<=stage_start(stagestart_n,1)
+                            strow = strow+1;
+                            rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
+                        elseif perfecttime(1,n)>stage_start(stagestart_n,1)
+                            strow=1;
+                            stagestart_n=stagestart_n+1;
+                            rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
+                        end        
+                    else
+                        strow = strow+1;
+                        rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
+                    end
+                end
+                
+                %%%
+                for n = 1:lengp
+                    [~,perfect_rowrange(1,n)]=min(abs(absolutetime-perfecttime(1,n)));
+                    [~,perfect_rowrange(2,n)]=min(abs(absolutetime-perfecttime(1,n)-inttime*10^9));
+                end
+                %%%
+                
 if length(rowrange(1).rr)==0;
     rowrange(1)=[];
 end
