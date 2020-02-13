@@ -1,87 +1,77 @@
-
-%08/07/2018
+%02/12/2020
 clear all
 clc;
 %%This part for generate how wavelength change with experiment time, assume
 %%integration time is 1 sec.
-
 %%
 %PartI: user define
-%User define£ºThis part is for chose the direction of apd file, then automatically run files
+%User define. This part is for chose the direction of apd file, then automatically run files
 codefolder=pwd;
 solvent='F8T2 Chloroform 2kda ';
-date='$date'%basically the folder name
-datafolder=['../' date '.$foldernumber'];
-%IRFI_location='/scratch/lwang74/PTU_spectrum_lifetime_bluehive/PTUdata/IRFI_8ps_8000_channel';%Originally file name would be IRFI_XXX_channel(num).mat
-IRFI_location='/scratch/lwang74/PTU_spectrum_lifetime_bluehive/PTUdata/IRFI/IRFI_8ps_channel0_3d3d15.mat'
+%date='$date'%basically the folder name
+date='02022020'
+%datafolder=['../' date '.$foldernumber'];
+datafolder=['C:\Users\Livi\Documents\Results\' date];
+IRFI_location='C:\Users\Livi\Documents\Results\02022020\IRFI_8ps_fakegaussian7_channel'
 cd([datafolder '/apd']);
+%deal with APD file
 allnames=struct2cell(dir('*.mat'));
-[~,len]=size(allnames);
+len=length(allnames(1,:));
 inttime=1;%This is time in sec
 deadtime=0.079;%This is time in sec
 timetrace_resolution=0.1*10^9;%The resolution for setting the bin size in time trace in ns
 tau_max=2500; % in unit of picoescond
-tau_min=70;%in unit of pico second
+tau_min=30;%in unit of pico second
 tau_inter=10;%between lowest and highest tau, you won't check one by one....
 plot_graph='no';
 dataset_Y='yes';
 channel_box=[0];%must put in a row
-wavelengthstart=22;
-%Extra import related to marker, Search "M".
+wavelengthstart=1;
 disp('Finish User define\n')
+
 % Part II. start the calculation
 for len_i=1:len;
-clearvars -except len_i date k len allnames inttime deadtime plot_graph dataset_Y timetrace_resolution codefolder channel_box IRFI_location tau_max tau_min tau_inter datafolder solvent wavelengthstart
-%%
-try
-clear name
-
-name=char(allnames(1,len_i));
-name=name(1:length(name)-4);
-
-%This part need to 
-cd(codefolder);
-try
-ccdt=importdata([datafolder '/ccd/' 'ccdt' name '.mat']);
-expwl=importdata([datafolder '/ccd/' 'ccdt_wavelength' name '.mat']);
-
-catch
-    fprintf('No CCD file avaliable for file: %s\n',name)
-end
-%This part import APD file.
-try
-apd_file=[datafolder '/apd/' name '.mat'];%»ñµÃÑ¡ÔñµÄÎÄ¼þ¼Ð
-catch
-    fprintf('No APD file avaliable for file: %s\n. Not suppose to happen\n',name)
-end
-
-try
-for channel_choice=1:numel(channel_box)
-    cd(codefolder);
-channel=channel_box(channel_choice,1);
-%Part II.1 Time trace of APD
-[apddata,apddataresolution]=PTUim(apd_file);
-disp('Finish import apdfile\n')
-datasource=GetDandABS(apddata,channel,'M');
-absolutetime=datasource(:,1);
-dtime=datasource(:,2);
-%Deserve a for loop for different data sets
-timetrace=Gen_timetrace(absolutetime,timetrace_resolution);
-disp('Finish generate time trace')
-time=timetrace(:,1);
-%PartII.2 Modified curve calculation
-countsrate=timetrace(:,2);%Time rates is in 10ms
-[eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefolder);%this for seperate into different states
-disp('Finish generate modified time trace')
-%Generate the place the change occur,the last element of former segment;
-n=1;
-for i=2:length(eff_fit(numst,:))
-   if eff_fit(numst,i-1)~=eff_fit(numst,i) 
-    stage_changepts(n,1)=i-1;%This should be the last element of one segment
-   n=n+1;
-   end
-end
-stage_start=zeros(length(stage_changepts),1);
+    clearvars -except len_i date k len allnames inttime deadtime plot_graph dataset_Y timetrace_resolution codefolder channel_box IRFI_location tau_max tau_min tau_inter datafolder solvent wavelengthstart
+    try
+        clear name
+        name=char(allnames(1,len_i));
+        name=name(1:length(name)-4);
+        cd(codefolder);
+        %import CCD
+        try
+            ccdt=importdata([datafolder '/ccd/' 'ccdt' name '.mat']);
+            expwl=importdata([datafolder '/ccd/' 'ccdt_wavelength' name '.mat']);
+        catch
+            fprintf('No CCD file avaliable for file: %s\n',name)
+        end
+        %Import APD file.
+        try
+            apd_file=[datafolder '/apd/' name '.mat'];
+        catch
+            fprintf('No APD file avaliable for file: %s\n. Not suppose to happen\n',name)
+        end
+        
+        try
+            for channel_choice=1:numel(channel_box)
+                cd(codefolder);
+                channel=channel_box(channel_choice,1);
+                %Part II.1 Time trace of APD
+                [apddata,apddataresolution]=PTUim(apd_file);
+                disp('Finish import apdfile\n')
+                datasource=GetDandABS(apddata,channel,'M');
+                absolutetime=datasource(:,1);
+                dtime=datasource(:,2);
+                %Deserve a for loop for different data sets
+                timetrace=Gen_timetrace(absolutetime,timetrace_resolution+deadtime*(10^9));
+                disp('Finish generate time trace')
+                time=timetrace(:,1);
+                %PartII.2 Modified curve calculation
+                countsrate=timetrace(:,2);%Counts in 10ms
+                [eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefolder);%this for seperate into different states
+                disp('Finish generate modified time trace')
+                %Generate the place the change occur,the last element of former segment;
+                stage_changepts=transpose(find(diff(eff_fit(numst,:))~=0));
+                stage_start=zeros(length(stage_changepts),1);
 for i=1:length(stage_changepts)
     stage_start(i,1)=time(stage_changepts(i,1),1);%Generate time corresponding to stage change
 end
