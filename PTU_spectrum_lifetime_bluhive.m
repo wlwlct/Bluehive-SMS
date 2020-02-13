@@ -94,26 +94,6 @@ for len_i=1:len;
                 stagestart_n=2;
                 strow=0;
                 lengp=length(perfecttime);
-
-                for n = 1:lengp
-                    [~,srn]=min(abs(absolutetime-perfecttime(1,n)));
-                    [~,ern]=min(abs(absolutetime-perfecttime(1,n)-inttime*10^9));
-                    %This part use two 'if' to put data into different state...
-                    if stagestart_n<=length(stage_start)
-                        if stage_start(stagestart_n-1,1)<=perfecttime(1,n) && perfecttime(1,n)<=stage_start(stagestart_n,1)
-                            strow = strow+1;
-                            rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
-                        elseif perfecttime(1,n)>stage_start(stagestart_n,1)
-                            strow=1;
-                            stagestart_n=stagestart_n+1;
-                            rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
-                        end        
-                    else
-                        strow = strow+1;
-                        rowrange(stagestart_n-1).rr([1,2],strow)=[srn;ern];
-                    end
-                end
-                
                 %%%
                 for n = 1:lengp
                     [~,perfect_rowrange(1,n)]=min(abs(absolutetime-perfecttime(1,n)));
