@@ -137,6 +137,7 @@ for tau=tau_min/IRFI_resolution:tau_inter/IRFI_resolution:tau_max/IRFI_resolutio
     check_n=1;
     small_chisqr=1;
     Fluo_sub_copy=Fluo_sub;
+    %shift Fluo left and right to get better fitting position
     while check_n<50
         check_n=check_n+1;
         sqrr=DISTORED(1:DISTORED_max_position+200,1)-transpose(Fluo_sub_copy(1,1:DISTORED_max_position+200));
