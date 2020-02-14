@@ -3,7 +3,7 @@ clear all
 clc;
 %%This part for generate how wavelength change with experiment time, assume
 %%integration time is 1 sec.
-%%
+%
 %PartI: user define
 %User define. This part is for chose the direction of apd file, then automatically run files
 codefolder=pwd;
@@ -20,8 +20,8 @@ len=length(allnames(1,:));
 inttime=1;%This is time in sec
 deadtime=0.079;%This is time in sec
 timetrace_resolution=0.1*10^9;%The resolution for setting the bin size in time trace in ns
-tau_max=2500; % in unit of picoescond
-tau_min=30;%in unit of pico second
+tau_max=500; % in unit of picoescond
+tau_min=300;%in unit of pico second
 tau_inter=10;%between lowest and highest tau, you won't check one by one....
 plot_graph='no';
 dataset_Y='yes';
@@ -61,11 +61,10 @@ for len_i=1:len;
                 datasource=GetDandABS(apddata,channel,'M');
                 absolutetime=datasource(:,1);
                 dtime=datasource(:,2);
-                %Deserve a for loop for different data sets
                 timetrace=Gen_timetrace(absolutetime,timetrace_resolution+deadtime*(10^9));
                 disp('Finish generate time trace')
                 time=timetrace(:,1);
-                %PartII.2 Modified curve calculation
+                %PartII.2 Modified curve calculation,determine different states
                 countsrate=timetrace(:,2);%Counts in 10ms
                 [eff,eff_fit,MDL,numst,current_state]=Traceson(countsrate,codefolder);%this for seperate into different states
                 disp('Finish generate modified time trace')
@@ -73,15 +72,12 @@ for len_i=1:len;
                 stage_changepts=transpose(find(diff(eff_fit(numst,:))~=0));
                 stage_start=[0;time(stage_changepts+1,1)];
                 disp('Finish Generate change point with absolute time')
-                %This is for dissect data to 1 sec time range, or several time range when points are not enough.
+                %Generate perfect timeline
                 ttstart=absolutetime(1,1);%The unit is in nanosecond
                 ttend=absolutetime(end,1);
-                exptime = ttend;
-                perstartt = ttstart;
-                
                 perfect_prep=[0:1:ceil((ttend-ttstart)/((inttime+deadtime)*10^9))];
-                perfecttime=perstartt+perfect_prep.*((inttime+deadtime)*10^9);%matrix for the desired timeline
-                perfecttime=perfecttime(perfecttime<exptime-inttime*10^9);           
+                perfecttime=ttstart+perfect_prep.*((inttime+deadtime)*10^9);%matrix for the desired timeline
+                perfecttime=perfecttime(perfecttime<ttend-inttime*10^9);           
                 disp('Finish Generate perfect time line')
                 %%This part to seperate the perfectime in different state, so we can use
                 %seperate different row range in different state.Based on the state,
@@ -101,84 +97,53 @@ for len_i=1:len;
                 for  stage_start_i=1:stage_start_leng
                     rowrange(stage_start_i).rr=perfect_rowrange(:,perfectrow_close_stagestart(stage_start_i,1):perfectrow_close_stagestart(stage_start_i,2));
                 end
-                
-disp('Finish use perfet time line to generate row range')
-cd(codefolder)
-%
-%This is the part for generate lifetime for each part
-IRFI_sub_file=strcat([IRFI_location num2str(channel) '.mat']);
-[IRFI_hisdtime,IRFI_resolution]=PTUim(IRFI_sub_file);
-disp('Finish load IRFI file')
-if IRFI_resolution~=apddataresolution
-disp('No need to calculate lifetime, IRF and Fluorescence have different resolution')
-end
-    
-%Part 0: User Define
-%Part0.2 program required
-lf=[];
-%For generating picture purpose, I will introduce variable 'js' to check
-%what is the second number.
-%%%for name
-js=0;
-%%%
-for n=1:length(rowrange)
-    [~,rowrange_heng]=size(rowrange(n).rr);
-    zeroplace(n).zp(1,1)=0;
-    ii=0;
-for i=1:rowrange_heng
-    %%%For name
-    js=js+1;
-    %%%
-    Intensity(js)=length(rowrange(n).rr(1,i):rowrange(n).rr(2,i));
-disp('Finish Intensity part');
-    Fluo_dtime=dtime(rowrange(n).rr(1,i):rowrange(n).rr(2,i),1);
-    disp('Finish dtime part')
-    
-    
-[Live(n).lifetime(i).ll,~,fitting(n).fit(i).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);%By using this, need to find your own range....
+                disp('Finish use perfet time line to generate row range');
+                cd(codefolder)
 
-if Live(n).lifetime(i).ll == 0
-    %find the place equal to zero in each state.
-        ii=ii+1;
-    zeroplace(n).zp(ii,1)=i;
-end
-end
-fprintf('Finish generate lifetime related information in stage %d',n);
-%
-%Also you need to check which part is continuous zero. I check by minus
-%former value. I also put different set of continuous part in 'matrix
-%conti',column direction is different set
-
-
-
-%If zero place is inside, one of the problem is that zero won't produce
-%unless the next value shows up, I think...
-if length(zeroplace(n).zp)>=2;j=1;k=1;q=1;
-for i=1:length(zeroplace(n).zp)-1
-        if zeroplace(n).zp(i,1)==zeroplace(n).zp(i+1,1)-1
-        q=0;
-        conti(n).co(j,k)=zeroplace(n).zp(i,1);
-        k=k+1;
-            if i==length(zeroplace(n).zp)-1
-                conti(n).co(j,k)=zeroplace(n).zp(i+1,1);
-            end
-        
-        else
-            if q~=1
-            conti(n).co(j,k)=zeroplace(n).zp(i,1);
-            j=j+1;% j for each continuous 1 put in one row,change different row for different set of       
-            q=1;k=1;
-                if i==length(zeroplace(n).zp)-1
-                conti(n).co(j,k)=zeroplace(n).zp(i+1,1);
+                %Part II.3 Generate lifetime for each part
+                %Import IRFI
+                IRFI_sub_file=strcat([IRFI_location num2str(channel) '.mat']);
+                [IRFI_hisdtime,IRFI_resolution]=PTUim(IRFI_sub_file);
+                disp('Finish load IRFI file')
+                if IRFI_resolution~=apddataresolution
+                disp('No need to calculate lifetime, IRF and Fluorescence have different resolution')
                 end
-            end
-        end
-        
-end        
-end
-end
-disp('Finish check place lifetime equal 0')
-%%
+
+                lf=[];
+                %For generating picture purpose, I will introduce variable 'js' to check what is the second number.
+                %%%for name
+                js=0;
+                %%%
+                for n=1:stage_start_leng
+                    rowrange_heng=length(rowrange(n).rr(1,:));
+                    zeroplace(n).zp(1,1)=0;
+                    ii=0;
+                    for i=1:rowrange_heng
+                        %%%For name
+                        js=js+1;
+                        %%%
+                        Intensity(js)=rowrange(n).rr(2,i)-rowrange(n).rr(1,i)+1;disp('Finish Intensity part');
+                        Fluo_dtime=dtime(rowrange(n).rr(1,i):rowrange(n).rr(2,i),1);disp('Finish dtime part');
+                        %stage.second.S and tau; stage.second.S,tau,curve
+                        [Live(n).lifetime(i).ll,~,fitting(n).fit(i).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                        if Live(n).lifetime(i).ll == -1 %break without detail calculation
+                            ii=ii+1;
+                            zeroplace(n).zp(ii,1)=i;
+                        end
+                    end
+                    fprintf('Finish generate lifetime related information in stage %d',n);
+                    %%% rewrite the conti.
+                    zeroplace_diff=find(diff(zeroplace(n).zp)~=1);
+                    conti_range=[[1;zeroplace_diff+1],[zeroplace_diff;length(zeroplace(n).zp)]];
+                    conti_range=conti_range(conti_range(:,1)~=conti_range(:,2),:);
+                    conti(n).co=zeros(length(zeroplace_diff),1+max(conti_range(:,2)-conti_range(:,1)));
+                    conti_range_leng=length(conti_range(:,1));
+                    for conti_range_i=1:conti_range_leng
+                        B=(conti_range(conti_range_i,2));A=conti_range(conti_range_i,1);
+                       conti(n).co(conti_range_i,1:1+B-A)=zeroplace(n).zp(A:B,1); 
+                    end
+                disp('Finish check place lifetime equal 0')
+%
 %This part is another for loop for calculate rearranged data.
 %If the zero is continuous, add up nearby two set of data, recalculate lifetime again;if the zero is not
     %continuous,give up there might be some extra problem that we need to
@@ -278,7 +243,7 @@ for n=1:length(Live)
 end
 
 disp('Finish find S related value');
-%%
+%
 %plot the graph
 if length(lf)~=0
 
