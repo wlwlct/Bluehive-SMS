@@ -1,3 +1,4 @@
+%For PTU file
 function [CALC,TOTSIG]=GenCALC_M(tau,comparerange_CALC)
 
 expvalue=1;

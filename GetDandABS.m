@@ -1,3 +1,5 @@
+%From the marker or not, choose all the data with photon place; but only
+%absolute time and dtime
 function DandABS=GetDandABS(datasource,varargin);
 for i=1:nargin-1
     if ischar(varargin{i})
@@ -23,7 +25,4 @@ switch nargin-2
         error('More than 2 channel is not considered yet')
         
 end
-
-
-
 end

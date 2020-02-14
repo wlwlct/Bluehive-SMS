@@ -1,3 +1,4 @@
+%Use to import resolution and data file
 function[data_raw,resolution]=PTUim(fullpath)
 A=load(fullpath);
 try

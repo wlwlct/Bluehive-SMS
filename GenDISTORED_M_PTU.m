@@ -1,3 +1,4 @@
+%For PTU file
 function DISTORED=GenDISTORED_M(CALC,IRFI_sub,TOTSIG,comparerange_CALC)
 A=0;
 DSUM=0;
