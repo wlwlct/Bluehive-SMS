@@ -142,6 +142,7 @@ for len_i=1:len;
                         B=(conti_range(conti_range_i,2));A=conti_range(conti_range_i,1);
                        conti(n).co(conti_range_i,1:1+B-A)=zeroplace(n).zp(A:B,1); 
                     end
+                end
                 disp('Finish check place lifetime equal 0')
 %
 %This part is another for loop for calculate rearranged data.
@@ -409,4 +410,4 @@ end
 catch
     fprintf('file: %s fail',name)
 end
-end
+    end
