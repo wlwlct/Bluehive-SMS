@@ -126,6 +126,8 @@ for len_i=1:len;
                         Fluo_dtime=dtime(rowrange(n).rr(1,i):rowrange(n).rr(2,i),1);disp('Finish dtime part');
                         %stage.second.S and tau; stage.second.S,tau,curve
                         [Live(n).lifetime(i).ll,~,fitting(n).fit(i).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                        Live_test(n).lifetime(i).ll=Live(n).lifetime(i).ll;
+                        fitting_test(n).fit(i).ft=fitting(n).fit(i).ft;
                         if Live(n).lifetime(i).ll == -1 %break without detail calculation
                             ii=ii+1;
                             zeroplace(n).zp(ii,1)=i;
@@ -149,78 +151,58 @@ for len_i=1:len;
 %If the zero is continuous, add up nearby two set of data, recalculate lifetime again;if the zero is not
     %continuous,give up there might be some extra problem that we need to
     %solve. Similar to Lifetime calculation
-
     
     %Avoid the confucion and easier the cauculation, if the 0 more than 
     %js_n=0;
-for n=1:length(rowrange)
-    [conti_zong,~]=size(conti(n).co);
-  
-    Fluo_dtime=[];
-    if numel(conti(n).co)~=0
-    for iii=1:conti_zong
-      zerolength=length(find(conti(n).co(iii,:)>0));
-                if zerolength<30;
-                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
-                    for k=1:zerolength-1;
-                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                  
-                    end
-                    %%%For name
-                    %js=js_n+conti(n).co(iii,1);               
-                   %%%
-                    [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);                    for k=1:zerolength-1
-                    Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
-                    fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
-                    end
-                    
-                elseif zerolength>=30
-      %Then we need to calculate from both side, then compare with each
-      %other, basically we need to seperate the zeros into 3 parts, with
-      %intersection of 10s, then we will calculate from both side, then
-      %lets see what's the proble lifetime for both side.
-                    callength=floor((zerolength-10)/2)-1;%with minus one to eliminate the chance of over exceed the length
-                    %for claculate and write in the first half
-                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
-                    for k=1:callength-1
-                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                  
-                    end
-                     %%%For name
-                     %js=js_n+conti(n).co(iii,1); 
-                     %%%
-                    [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
-                     for k=1:callength-1
-                        Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
-                        fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
-                    end
-                    
+                for n=1:length(rowrange)
+                    [conti_zong,~]=size(conti(n).co);
+                    Fluo_dtime=[];
+                    if numel(conti(n).co)~=0
+                        for iii=1:conti_zong
+                            
+                            zerolength=length(find(conti(n).co(iii,:)>0));
+                            if zerolength<30;
+                                Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
+                                for k=1:zerolength-1;
+                                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                  
+                                end
+
+                                [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);                    
+                                for k=1:zerolength-1
+                                    Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
+                                    fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
+                                end    
+                            elseif zerolength>=30
+%calculate from each side,seperate the zeros into 3 parts, with 10suncalculated, then we will calculate from both side
+                                callength=floor((zerolength-10)/2)-1;%with minus one to eliminate the chance of over exceed the length
+                                %for claculate and write in the first half
+                                Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
+                                for k=1:callength-1
+                                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));                  
+                                end
+                                
+                                [Live(n).lifetime(conti(n).co(iii,1)).ll, ~,fitting(n).fit(conti(n).co(iii,1)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                                for k=1:callength-1
+                                    Live(n).lifetime(conti(n).co(iii,1+k)).ll=Live(n).lifetime(conti(n).co(iii,1)).ll;
+                                    fitting(n).fit(conti(n).co(iii,1+k)).ft=fitting(n).fit(conti(n).co(iii,1)).ft;
+                                end
                     %for calculate and write in the second half 
-                    k=callength+10;
-                    kk=callength+10;
-                    Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,k)):rowrange(n).rr(2,conti(n).co(iii,k)),1);
-                    for k=callength+10:zerolength-1
-                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));
-                    end
-                     %%%For name
-                     %js=js_n+conti(n).co(iii,k);
-                     %%%
-                    [Live(n).lifetime(conti(n).co(iii,kk)).ll, ~,fitting(n).fit(conti(n).co(iii,kk)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
+                                k=callength+10;
+                                kk=callength+10;
+                                Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,k)):rowrange(n).rr(2,conti(n).co(iii,k)),1);
+                                for k=callength+10:zerolength-1
+                                    Fluo_dtime=cat(1,Fluo_dtime,dtime(rowrange(n).rr(1,conti(n).co(iii,1+k)):rowrange(n).rr(2,conti(n).co(iii,1+k)),1));
+                                end
+                                [Live(n).lifetime(conti(n).co(iii,kk)).ll, ~,fitting(n).fit(conti(n).co(iii,kk)).ft]=PTU_lifetimefitson_CHM232(Fluo_dtime,tau_min,tau_max,tau_inter,IRFI_hisdtime,IRFI_resolution);
                     
-                    for k=callength+10:zerolength-1
-                        Live(n).lifetime(conti(n).co(iii,k+1)).ll=Live(n).lifetime(conti(n).co(iii,kk)).ll;
-                        fitting(n).fit(conti(n).co(iii,k+1)).ft=fitting(n).fit(conti(n).co(iii,kk)).ft;
-                    end
-                end      
-        %also later would add on how to deal with different stage, two stage or
-    %two more, we will treat them differently.
-    end
-    end   
-    
-    %%%For name
-     %   [~,rowrange_heng]=size(rowrange(n).rr);
-    %js_n=js_n+rowrange_heng;
-    %%%
-    
-end
+                                for k=callength+10:zerolength-1
+                                    Live(n).lifetime(conti(n).co(iii,k+1)).ll=Live(n).lifetime(conti(n).co(iii,kk)).ll;
+                                    fitting(n).fit(conti(n).co(iii,k+1)).ft=fitting(n).fit(conti(n).co(iii,kk)).ft;
+                                end
+                            end      
+                        end
+                    end      
+                end
 disp('Finish recombination of 0 places and recalculate')
 
 %%
