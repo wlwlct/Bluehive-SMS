@@ -148,18 +148,14 @@ for len_i=1:len;
                 disp('Finish check place lifetime equal 0')
 %
 %This part is another for loop for calculate rearranged data.
-%If the zero is continuous, add up nearby two set of data, recalculate lifetime again;if the zero is not
+%If the zero is continuous, add up nearby two set of data, recalculatelifetime again;if the zero is not
     %continuous,give up there might be some extra problem that we need to
-    %solve. Similar to Lifetime calculation
-    
-    %Avoid the confucion and easier the cauculation, if the 0 more than 
-    %js_n=0;
+    %solve.
                 for n=1:length(rowrange)
                     [conti_zong,~]=size(conti(n).co);
                     Fluo_dtime=[];
                     if numel(conti(n).co)~=0
-                        for iii=1:conti_zong
-                            
+                        for iii=1:conti_zong                           
                             zerolength=length(find(conti(n).co(iii,:)>0));
                             if zerolength<30;
                                 Fluo_dtime=dtime(rowrange(n).rr(1,conti(n).co(iii,1)):rowrange(n).rr(2,conti(n).co(iii,1)),1);
@@ -203,193 +199,158 @@ for len_i=1:len;
                         end
                     end      
                 end
-disp('Finish recombination of 0 places and recalculate')
+                disp('Finish recombination of 0 places and recalculate')
 
 %%
 % this part could transfer the ensemble data from different segments to one
 % matrix with lifetime for each second.
-i=0;
-for n=1:length(Live)
-    [~,lifetime_heng]=size(Live(n).lifetime);
-    for ii=1:lifetime_heng
-        [lf_min,lf_min_position]=min(Live(n).lifetime(ii).ll(:,1));
-    if lf_min~=0
-    lf(i+ii,1)=lf_min;%for If the first column is the min S value,second is corresponsing lifetime, third is minimum lifetime, forth corresponding S value; fifth is maximum lifetime; 6th is correponding S value.
-    lf(i+ii,2)=Live(n).lifetime(ii).ll(lf_min_position,2);%lifetime for mininum S value
-    [lf(i+ii,5),min_lifetime_position]=min(Live(n).lifetime(ii).ll(:,2));%minimum lifetime 
-    lf(i+ii,3)=max(Live(n).lifetime(ii).ll(min_lifetime_position,1));%S value corresponding to minimum lifetime
-    [lf(i+ii,6),max_lifetime_position]=max(Live(n).lifetime(ii).ll(:,2));%maximum lifetime
-    lf(i+ii,4)=max(Live(n).lifetime(ii).ll(max_lifetime_position,1));%S value corresponding to maximum lifetime
-    end
-    end
-    i=lifetime_heng+i;
-end
-
-disp('Finish find S related value');
+                i=0;
+                for n=1:length(Live)
+                    [~,lifetime_heng]=size(Live(n).lifetime);
+                    for ii=1:lifetime_heng
+                        [lf_min,lf_min_position]=min(Live(n).lifetime(ii).ll(:,1));
+                        if lf_min~=-1
+                            lf(i+ii,1)=lf_min;%for If the first column is the min S value,second is corresponsing lifetime, third is minimum lifetime, forth corresponding S value; fifth is maximum lifetime; 6th is correponding S value.
+                            lf(i+ii,2)=Live(n).lifetime(ii).ll(lf_min_position,2);%lifetime for mininum S value
+                            [lf(i+ii,5),min_lifetime_position]=min(Live(n).lifetime(ii).ll(:,2));%minimum lifetime 
+                            lf(i+ii,3)=max(Live(n).lifetime(ii).ll(min_lifetime_position,1));%S value corresponding to minimum lifetime
+                            [lf(i+ii,6),max_lifetime_position]=max(Live(n).lifetime(ii).ll(:,2));%maximum lifetime
+                            lf(i+ii,4)=max(Live(n).lifetime(ii).ll(max_lifetime_position,1));%S value corresponding to maximum lifetime
+                        end
+                    end
+                    i=lifetime_heng+i;
+                end
+                disp('Finish find S related value');
 %
-%plot the graph
-if length(lf)~=0
-
-[lf_v,~]=size(lf);
-[wl_v,~]=size(expwl);
-%plot
-    if lf_v>=wl_v
-    %lf_max=max(lf(1:wl_v-1,2));%max value is for normalization, may bring some
-    %erro, not use here for now
-    %expwl_max=max(expwl(2:end,1));
-    lfneg=lf(1:wl_v-1,5)-lf(1:wl_v-1,2);
-    lfpos=lf(1:wl_v-1,6)-lf(1:wl_v-1,2);
-    lfS=lf(1:wl_v-1,1);
-    lfwl=cat(2,lf(1:(wl_v-1),2),expwl(2:end,1));%minus one is due to first element of expwl is 0. in order to make the dimension match each other.
-    ccdintensity=sum(ccdt(:,3:end));
-disp('Finish if to cut data \n')
-else
-    %lf_max=max(lf(:,2));
-    %expwl_max=max(expwl(2:lf_v,1));
-    lf=cat(1,lf,zeros(wl_v-lf_v-1,6));
-    lfneg=lf(:,5)-lf(:,2);
-    lfpos=lf(:,6)-lf(:,2);
-    lfS=lf(:,1);
-    lfwl=cat(2,lf(:,2),expwl(2:end,1));% same as minus one
-    ccdintensity=sum(ccdt(:,3:end));
-disp('Finish if to cut data \n')
-    end
+                if length(lf)~=0
+                    [lf_v,~]=size(lf);
+                    [wl_v,~]=size(expwl);
+                    if lf_v>=wl_v
+                        lfneg=lf(1:wl_v-1,5)-lf(1:wl_v-1,2);
+                        lfpos=lf(1:wl_v-1,6)-lf(1:wl_v-1,2);
+                        lfS=lf(1:wl_v-1,1);
+                        lfwl=cat(2,lf(1:(wl_v-1),2),expwl(2:end,1));%minus one is due to first element of expwl is 0. in order to make the dimension match each other.
+                        ccdintensity=sum(ccdt(:,3:end),1);
+                        disp('Finish if to cut data \n')
+                    else
+                        lf=cat(1,lf,zeros(wl_v-lf_v-1,6));
+                        lfneg=lf(:,5)-lf(:,2);
+                        lfpos=lf(:,6)-lf(:,2);
+                        lfS=lf(:,1);
+                        lfwl=cat(2,lf(:,2),expwl(2:end,1));%lifetime and average wavelength
+                        ccdintensity=sum(ccdt(:,3:end),1);
+                        disp('Finish if to cut data \n')
+                    end
     
 %check combineplace, write new ccd and average ccd part 
-    xupper=length(expwl(2:end,1));
-[allsecs,newconti]=con2sec(rowrange,conti,xupper);
-newccdt=ccdt;
-newexpwl=expwl;
+                    xupper=length(expwl(2:end,1));
+                    [allsecs,newconti]=con2sec(rowrange,conti,xupper);
+                    newccdt=ccdt;
+                    newexpwl=expwl;
+                    newconti_leng=length(newconti);
+                    for newconti_i=1:1:newconti_leng%stage num
+                        newcontico_leng=length(newconti(newconti_i).co);
+                        for newcontico_i=1:1:newcontico_leng%cotinuous part (subco) num, mainly 1
+                            if ~isempty(newccdt(:,newconti(newconti_i).co(newcontico_i).subco))
+                                newccdt_combination=sum(newccdt(:,newconti(newconti_i).co(newcontico_i).subco(1,1)+2:...
+                                newconti(newconti_i).co(newcontico_i).subco(1,end)+2),2);
+                                avewavelength=sum(newccdt_combination(wavelengthstart:end,1).*newccdt(wavelengthstart:end,1))/sum(newccdt_combination(wavelengthstart:end,1));
 
-newconti_leng=length(newconti);
-for newconti_i=1:1:newconti_leng
-newcontico_leng=length(newconti(newconti_i).co);
-for newcontico_i=1:1:newcontico_leng
-    
-    if ~isempty(newccdt(:,newconti(newconti_i).co(newcontico_i).subco))
-newccdt_combination=sum(newccdt(:,newconti(newconti_i).co(newcontico_i).subco(1,1)+2:...
-    newconti(newconti_i).co(newcontico_i).subco(1,end)+2),2);
-avewavelength=sum(newccdt_combination(wavelengthstart:end,1).*newccdt(wavelengthstart:end,1))/sum(newccdt_combination(wavelengthstart:end,1));
-
-subco_leng=length(newconti(newconti_i).co(newcontico_i).subco(1,:));
-for subco_i=1:1:subco_leng
-
-    newccdt(:,newconti(newconti_i).co(newcontico_i).subco(1,subco_i)+2)=newccdt_combination;
-    newexpwl(newconti(newconti_i).co(newcontico_i).subco(1,subco_i)+1,1)=avewavelength;
-    
-end
-
-
-    end
-
-
-
-end
-
-end
-
-
-
-disp('Successful with newconti')
+                                subco_leng=length(newconti(newconti_i).co(newcontico_i).subco(1,:));
+                                for subco_i=1:1:subco_leng
+                                    newccdt(:,newconti(newconti_i).co(newcontico_i).subco(1,subco_i)+2)=newccdt_combination;
+                                    newexpwl(newconti(newconti_i).co(newcontico_i).subco(1,subco_i)+1,1)=avewavelength;
+                                end
+                            end
+                        end
+                    end
+                    disp('Successful with newconti')
   %This is for generate the useful dataset
-  if strcmp(dataset_Y,'yes')==1
-     dataset.time_trace=cat(2,timetrace(:,1),timetrace(:,2).*(0.01*10^9)/timetrace_resolution);
-     dataset.side=struct('eff',eff*((0.01*10^9)/timetrace_resolution),'eff_fit',eff_fit*((0.01*10^9)/timetrace_resolution),'MDL',MDL,'numst',numst,'current_state',current_state,'ABStime_x',time-min(time));
-     dataset.ccdt=ccdt(:,1:end);
-     dataset.newccdt=newccdt(:,1:end);
-     dataset.scatterplot.lifetime=cat(2,lfS,lfwl(:,1),lfneg,lfpos);
-     dataset.scatterplot.spectrum=lfwl(:,2);
-     dataset.scatterplot.newspectrum=newexpwl(2:end,1);
-     dataset.scatterplot.intensity=cat(1,Intensity(1,1:length(lfwl(:,1))),ccdintensity);
-     dataset.fitting=fitting;
-     dataset.rowrange=rowrange;
-     dataset.newconti=newconti;
-     dataset.allsecs=allsecs;
-      
-        try
-    cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
-        catch
-    cd(datafolder)
-    %mkdir dataset intermediates
-    mkdir([datafolder '/dataset intermediates' '/' num2str(channel)])
-    cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
-        end
-    save([solvent date 'dataset' name '.mat'],'dataset')                
-  end
-    %
-   disp('Finish save dataset')
+                    if strcmp(dataset_Y,'yes')==1
+                        dataset.time_trace=cat(2,timetrace(:,1),timetrace(:,2).*(0.01*10^9)/timetrace_resolution);
+                        dataset.side=struct('eff',eff*((0.01*10^9)/timetrace_resolution),'eff_fit',eff_fit*((0.01*10^9)/timetrace_resolution),'MDL',MDL,'numst',numst,'current_state',current_state,'ABStime_x',time-min(time));
+                        dataset.ccdt=ccdt(:,1:end);
+                        dataset.newccdt=newccdt(:,1:end);
+                        dataset.scatterplot.lifetime=cat(2,lfS,lfwl(:,1),lfneg,lfpos);
+                        dataset.scatterplot.spectrum=lfwl(:,2);
+                        dataset.scatterplot.newspectrum=newexpwl(2:end,1);
+                        dataset.scatterplot.intensity=cat(1,Intensity(1,1:length(lfwl(:,1))),ccdintensity);
+                        dataset.fitting=fitting;
+                        dataset.rowrange=rowrange;
+                        dataset.newconti=newconti;
+                        dataset.allsecs=allsecs;
+                        try
+                            cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
+                        catch
+                            cd(datafolder)
+                            %mkdir dataset intermediates
+                            mkdir([datafolder '/dataset intermediates' '/' num2str(channel)])
+                            cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
+                        end
+                        save([solvent date 'dataset' name '.mat'],'dataset')                
+                    end
+                    disp('Finish save dataset')
 
-
-if strcmp(plot_graph,'yes')==1
-    
-figure
-hold off
-subplot(3,4,[7 8 11 12]);
-title('lifetime and spectrum')
-x=1:length(lfwl(:,1));
-%scatter3(x,lfwl(:,1),lf(x,1),'o');
-errorbar(x,lfwl(:,1),lfneg,lfpos, 'o');
-text(x,lfwl(:,1),lf(x,1)-1,'\ast','HorizontalAlignment','center')
-zlim([-0.15 0.15]);
-
-
-hold on 
-plot(lfwl(:,2),'o');
-legend('lifetime','wavelength (pixel*8)')%using normalized picture will miss some important points, such as in raster scan, the dark position seems to be blue emission.
-end
-else
-    if strcmp(plot_graph,'yes')==1
-    subplot(3,4,[7 8 11 12]);
-    title('spectrum')
-    plot(expwl.*8,'o');
-    xlabel('Lifetime not work for this file...sad...')
-    %print=['Not working for this file....sad....']
-    end
-end
+                    if strcmp(plot_graph,'yes')==1
+                        figure;hold off
+                        subplot(3,4,[7 8 11 12]);
+                        title('lifetime and spectrum')
+                        x=1:length(lfwl(:,1));
+                        %scatter3(x,lfwl(:,1),lf(x,1),'o');
+                        errorbar(x,lfwl(:,1),lfneg,lfpos, 'o');
+                        text(x,lfwl(:,1),lf(x,1)-1,'\ast','HorizontalAlignment','center')
+                        zlim([-0.15 0.15]);
+                        hold on 
+                        plot(lfwl(:,2),'o');
+                        legend('lifetime','wavelength (pixel*8)')%using normalized picture will miss some important points, such as in raster scan, the dark position seems to be blue emission.
+                    end
+                else
+                    if strcmp(plot_graph,'yes')==1
+                        subplot(3,4,[7 8 11 12]);
+                        title('spectrum')
+                        plot(expwl.*8,'o');
+                        xlabel('Lifetime not work for this file...sad...')
+                        %print=['Not working for this file....sad....']
+                    end
+                end
 %
 %This part plot time trace in the subplot of (3,4,[1 2])(3,4,3)(3,4,4)
-if strcmp(plot_graph,'yes')
-    numst = min(numst, numel(MDL));
-    current_state = numst;
-    subplot(3,4,3);
-    %state plot is for histogram
-    cd(codefolder);
-    state_plot(numst,eff,eff_fit,MDL);
-    title('Intensity horizontal histogram')
-    
-    subplot(3,4,[1 2]);
-    slider_plot(eff,eff_fit,current_state);
-    title(strcat('Time Trace ', ' Choosing ',num2str(numst),' states'))
-    %rowrange
-    subplot(3,4,4);
-    spider_plot(MDL,numst);
-    title('MDL vs. States')
-
-%%
-%This part for generate ccd spectrum
-subplot(3,4,[5 6 9 10]);
-hold
-mesh(ccdt);title('spectrum');
-%%
-%This is the part for saving graph
-try
-cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
-catch
-    cd([datafolder])
-    mkdir Figure intermediates
-    cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
-end
-savefig([solvent date name '.fig'])
-close all
-end
-end
-catch
-fprintf('file: %s channel %d fail',name,channel_choice)
-end
-
+                if strcmp(plot_graph,'yes')
+                    numst = min(numst, numel(MDL));
+                    current_state = numst;
+                    subplot(3,4,3);
+                    %state plot is for histogram
+                    cd(codefolder);
+                    state_plot(numst,eff,eff_fit,MDL);
+                    title('Intensity horizontal histogram')
+                    subplot(3,4,[1 2]);
+                    slider_plot(eff,eff_fit,current_state);
+                    title(strcat('Time Trace ', ' Choosing ',num2str(numst),' states'))
+                    subplot(3,4,4);
+                    spider_plot(MDL,numst);
+                    title('MDL vs. States')
+                    %%
+                    %This part for generate ccd spectrum
+                    subplot(3,4,[5 6 9 10]);mesh(ccdt);title('spectrum');
+                    %%
+                    %This is the part for saving graph
+                    try
+                        cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
+                    catch
+                        cd(datafolder)
+                        mkdir Figure intermediates
+                        cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
+                    end
+                    savefig([solvent date name '.fig'])
+                    close all
+                end
+            end
+        catch
+            fprintf('file: %s channel %d fail',name,channel_choice)
+        end
 
 %trycatch for len loop
-catch
-    fprintf('file: %s fail',name)
-end
+    catch
+        fprintf('file: %s fail',name)
     end
+end
