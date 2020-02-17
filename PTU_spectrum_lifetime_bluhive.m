@@ -7,12 +7,13 @@ clc;
 %PartI: user define
 %User define. This part is for chose the direction of apd file, then automatically run files
 codefolder=pwd;
-solvent='F8T2 Chloroform 2kda ';
+solvent='F8T2 Chloroform 2kda 400nm ';
 %date='$date'%basically the folder name
 date='02202020 Rerun'
 %datafolder=['../' date '.$foldernumber'];
 datafolder=['E:\' date];
-IRFI_location='C:\Users\Livi\Documents\Results\02022020\IRFI_8ps_fakegaussian7_channel'
+%IRFI_location='C:\Users\Livi\Documents\Results\02022020\IRFI_8ps_fakegaussian7_channel'
+IRFI_location='/scratch/lwang74/PTU_spectrum_lifetime_bluehive/PTUdata/IRFI/IRFI_8ps_fakegaussian7_channel'
 cd([datafolder '\apd']);
 %deal with APD file
 allnames=struct2cell(dir('*.mat'));
