@@ -202,7 +202,7 @@ for len_i=1:len;
                 end
                 disp('Finish recombination of 0 places and recalculate')
 
-%%
+%
 % this part could transfer the ensemble data from different segments to one
 % matrix with lifetime for each second.
                 i=0;
