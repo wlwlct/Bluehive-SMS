@@ -9,11 +9,11 @@ clc;
 codefolder=pwd;
 solvent='F8T2 Chloroform 2kda ';
 %date='$date'%basically the folder name
-date='02022020'
+date='02202020 Rerun'
 %datafolder=['../' date '.$foldernumber'];
-datafolder=['C:\Users\Livi\Documents\Results\' date];
+datafolder=['E:\' date];
 IRFI_location='C:\Users\Livi\Documents\Results\02022020\IRFI_8ps_fakegaussian7_channel'
-cd([datafolder '/apd']);
+cd([datafolder '\apd']);
 %deal with APD file
 allnames=struct2cell(dir('*.mat'));
 len=length(allnames(1,:));
@@ -39,14 +39,14 @@ for len_i=1:len;
         cd(codefolder);
         %import CCD
         try
-            ccdt=importdata([datafolder '/ccd/' 'ccdt' name '.mat']);
-            expwl=importdata([datafolder '/ccd/' 'ccdt_wavelength' name '.mat']);
+            ccdt=importdata([datafolder '\ccd\' 'ccdt' name '.mat']);
+            expwl=importdata([datafolder '\ccd\' 'ccdt_wavelength' name '.mat']);
         catch
             fprintf('No CCD file avaliable for file: %s\n',name)
         end
         %Import APD file.
         try
-            apd_file=[datafolder '/apd/' name '.mat'];
+            apd_file=[datafolder '\apd\' name '.mat'];
         catch
             fprintf('No APD file avaliable for file: %s\n. Not suppose to happen\n',name)
         end
@@ -138,7 +138,7 @@ for len_i=1:len;
                     zeroplace_diff=find(diff(zeroplace(n).zp)~=1);
                     conti_range=[[1;zeroplace_diff+1],[zeroplace_diff;length(zeroplace(n).zp)]];
                     conti_range=conti_range(conti_range(:,1)~=conti_range(:,2),:);
-                    conti(n).co=zeros(length(zeroplace_diff),1+max(conti_range(:,2)-conti_range(:,1)));
+                    conti(n).co=zeros(length(conti_range(:,1)),1+max(conti_range(:,2)-conti_range(:,1)));
                     conti_range_leng=length(conti_range(:,1));
                     for conti_range_i=1:conti_range_leng
                         B=(conti_range(conti_range_i,2));A=conti_range(conti_range_i,1);
@@ -280,12 +280,12 @@ for len_i=1:len;
                         dataset.newconti=newconti;
                         dataset.allsecs=allsecs;
                         try
-                            cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
+                            cd ([datafolder '\dataset intermediates' '\' num2str(channel)])
                         catch
                             cd(datafolder)
                             %mkdir dataset intermediates
-                            mkdir([datafolder '/dataset intermediates' '/' num2str(channel)])
-                            cd ([datafolder '/dataset intermediates' '/' num2str(channel)])
+                            mkdir([datafolder '\dataset intermediates' '\' num2str(channel)])
+                            cd ([datafolder '\dataset intermediates' '\' num2str(channel)])
                         end
                         save([solvent date 'dataset' name '.mat'],'dataset')                
                     end
@@ -335,11 +335,11 @@ for len_i=1:len;
                     %%
                     %This is the part for saving graph
                     try
-                        cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
+                        cd ([datafolder '\Figure intermediates' '\' num2str(channel)])
                     catch
                         cd(datafolder)
                         mkdir Figure intermediates
-                        cd ([datafolder '/Figure intermediates' '/' num2str(channel)])
+                        cd ([datafolder '\Figure intermediates' '\' num2str(channel)])
                     end
                     savefig([solvent date name '.fig'])
                     close all
